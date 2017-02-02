@@ -7,6 +7,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import java.util.concurrent.TimeUnit;
@@ -38,7 +39,6 @@ public class MainActivity extends AppCompatActivity {
     private static SyncCredentials sCredentials = SyncCredentials.usernamePassword(REALM_USER,
             REALM_PASSWORD, false);
 
-
     @BindView(R.id.editText)
     EditText mEditText;
     @BindView(R.id.button)
@@ -47,21 +47,39 @@ public class MainActivity extends AppCompatActivity {
     TextView mTextView;
     @BindView(R.id.progressBar)
     ProgressBar mProgressBar;
-    private SyncConfiguration mSyncConfig;
+    @BindView(R.id.buttonAddChild)
+    Button mButtonAddChild;
+    @BindView(R.id.buttonDelChild)
+    Button mButtonDelChild;
 
-    @OnClick(R.id.button)
-    void submit() {
+    @BindView(R.id.activity_main)
+    RelativeLayout mActivityMain;
+
+
+    @OnClick({R.id.button,R.id.buttonAddChild,R.id.buttonDelChild})
+    void onButtonClicked(final View btn) {
         mRealm.executeTransaction(new Realm.Transaction() {
             @Override
             public void execute(Realm realm) {
-                mTestRealm.setName(mEditText.getText().toString());
+                switch (btn.getId()){
+                    case R.id.button:
+                        mParentRealm.setName(mEditText.getText().toString());
+                        break;
+                    case R.id.buttonAddChild:
+                        mParentRealm.addChild(realm);
+                        break;
+                    case R.id.buttonDelChild:
+                        mParentRealm.delChild();
+                }
+
             }
         });
     }
 
+    private SyncConfiguration mSyncConfig;
     Realm mRealm;
 
-    TestRealm mTestRealm;
+    ParentRealm mParentRealm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,17 +92,17 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(SyncUser user) {
                 Log.d(TAG, "loginRealmServer onSuccess");
-                mProgressBar.setVisibility(View.INVISIBLE);
+                //mProgressBar.setVisibility(View.INVISIBLE);
                 mSyncConfig = new SyncConfiguration.Builder(user, REALM_DB_URL)
                         .initialData(new Realm.Transaction() {
                             @Override
                             public void execute(Realm realm) {
-                                realm.createObject(TestRealm.class, 1);
+                                realm.createObject(ParentRealm.class, 1);
                                 Log.d(TAG, "initData called");
                             }
                         })
                         .modules(new AppRealmModule())
-                        .name("test2")
+                        .name("test3")
                         .errorHandler(new SyncSession.ErrorHandler() {
                             @Override
                             public void onError(SyncSession session, ObjectServerError error) {
@@ -99,16 +117,16 @@ public class MainActivity extends AppCompatActivity {
                 //startSessionSupportProcess();
 
                 mProgressBar.setVisibility(View.GONE);
-                Log.d(TAG, "TestRealm count=" + mRealm.where(TestRealm.class).count());
+                Log.d(TAG, "ParentRealm count=" + mRealm.where(ParentRealm.class).count());
 
-                mTestRealm = mRealm.where(TestRealm.class).findFirst();
-                mTextView.setText("init: " + mTestRealm.getName());
+                mParentRealm = mRealm.where(ParentRealm.class).findFirst();
+                mTextView.setText("init: " + mParentRealm.getName());
 
-                mTestRealm.addChangeListener(new RealmChangeListener<RealmModel>() {
+                mParentRealm.addChangeListener(new RealmChangeListener<RealmModel>() {
                     @Override
                     public void onChange(RealmModel element) {
                         Log.d(TAG, "onChange element=" + element);
-                        mTextView.setText(((TestRealm) element).getName());
+                        mTextView.setText(element+"");
                     }
                 });
             }
@@ -119,26 +137,27 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-/* выдает /bad request!!!
-    private void refreshUser() {
-        SyncUser user = SyncUser.currentUser();
 
-        if (user != null) {
-            String userStr = user.toJson();
-            try {
-                JSONObject obj = new JSONObject(userStr);
-                URL authUrl = new URL(obj.getString("authUrl"));
-                Token userToken = Token.from(obj.getJSONObject("userToken"));
-                Log.d(TAG, "before refreshUser userToken=" + userToken + " authUrl=" + authUrl);
-                AuthenticateResponse resp = SyncManager.getAuthServer().refreshUser(userToken, authUrl);//bad request!!!
-                Log.d(TAG, "after refreshUser AuthenticateResponse=" + resp+" accessToken="+resp.getAccessToken()+" refreshToken="+resp.getRefreshToken());
-            } catch (Exception e) {
-                Log.e(TAG, "", e);
+    /* выдает /bad request!!!
+        private void refreshUser() {
+            SyncUser user = SyncUser.currentUser();
+
+            if (user != null) {
+                String userStr = user.toJson();
+                try {
+                    JSONObject obj = new JSONObject(userStr);
+                    URL authUrl = new URL(obj.getString("authUrl"));
+                    Token userToken = Token.from(obj.getJSONObject("userToken"));
+                    Log.d(TAG, "before refreshUser userToken=" + userToken + " authUrl=" + authUrl);
+                    AuthenticateResponse resp = SyncManager.getAuthServer().refreshUser(userToken, authUrl);//bad request!!!
+                    Log.d(TAG, "after refreshUser AuthenticateResponse=" + resp+" accessToken="+resp.getAccessToken()+" refreshToken="+resp.getRefreshToken());
+                } catch (Exception e) {
+                    Log.e(TAG, "", e);
+                }
             }
-        }
 
-    }
-*/
+        }
+    */
     //async
     private void startSessionSupportProcess() {
         Log.d(TAG, "userSessionSupportProcess started");
@@ -150,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
                         mRealm.executeTransactionAsync(new Realm.Transaction() {
                             @Override
                             public void execute(Realm realm) {
-                                realm.where(TestRealm.class).count();
+                                realm.where(ParentRealm.class).count();
                             }
                         });
                     }
